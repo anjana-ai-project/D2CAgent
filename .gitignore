@@ -1,0 +1,10 @@
+.env
+venv/
+__pycache__/
+*.pyc
+backend/database/d2cagent.db
+backend/database/chroma/
+test_d2cagent.db
+test_results.txt
+node_modules/
+frontend/dist/
