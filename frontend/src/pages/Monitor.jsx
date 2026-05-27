@@ -11,14 +11,6 @@ export default function Monitor() {
   const wsRef = useRef(null)
   const liveRef = useRef(null)
 
-  useEffect(() => {
-    loadData()
-    connectWebSocket()
-    return () => {
-      if (wsRef.current) wsRef.current.close()
-    }
-  }, [])
-
   const loadData = async () => {
     try {
       const [l, c, f, r] = await Promise.all([
@@ -36,17 +28,50 @@ export default function Monitor() {
     }
   }
 
-  const connectWebSocket = () => {
-    wsRef.current = api.connectMonitor((data) => {
-      setLiveLogs(prev => [{
-        ...data,
-        id: Date.now()
-      }, ...prev].slice(0, 100))
-      if (liveRef.current) {
-        liveRef.current.scrollTop = 0
+  useEffect(() => {
+    loadData()
+
+    const ws = new WebSocket('ws://localhost:8000/ws/monitor')
+
+    ws.onopen = () => {
+      console.log('WS connected')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'ping') return
+        setLiveLogs(prev => [{
+          ...data,
+          id: `${Date.now()}_${Math.random()}`
+        }, ...prev].slice(0, 100))
+        if (liveRef.current) {
+          liveRef.current.scrollTop = 0
+        }
+        if (data.type === 'workflow_complete') {
+          loadData()
+        }
+        if (data.type === 'agent_log' && data.action &&
+            data.action.includes('flag')) {
+          api.getFlags().then(setFlags)
+        }
+      } catch (e) {
+        console.error('WS parse error:', e)
       }
-    })
-  }
+    }
+
+    ws.onerror = (e) => console.error('WS error:', e)
+    ws.onclose = () => console.log('WS disconnected')
+
+    wsRef.current = ws
+
+    const interval = setInterval(loadData, 10000)
+
+    return () => {
+      ws.close()
+      clearInterval(interval)
+    }
+  }, [])
 
   const resolveFlag = async (flagId) => {
     await api.resolveFlag(flagId)
@@ -83,7 +108,6 @@ export default function Monitor() {
 
   return (
     <div className="p-6 h-full flex flex-col gap-4">
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
           { label: 'Total Runs', value: runs.length },
@@ -106,7 +130,6 @@ export default function Monitor() {
         ))}
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-800">
         {TABS.map(tab => (
           <button
@@ -124,10 +147,8 @@ export default function Monitor() {
         ))}
       </div>
 
-      {/* Tab Content */}
       <div className="flex-1 overflow-auto">
 
-        {/* Live Feed */}
         {activeTab === 'live' && (
           <div ref={liveRef}
             className="space-y-2 h-full overflow-auto">
@@ -195,7 +216,6 @@ export default function Monitor() {
           </div>
         )}
 
-        {/* Conversations */}
         {activeTab === 'conversations' && (
           <div className="space-y-2">
             {conversations.map(conv => (
@@ -240,7 +260,6 @@ export default function Monitor() {
           </div>
         )}
 
-        {/* Flags */}
         {activeTab === 'flags' && (
           <div className="space-y-3">
             {flags.map(flag => (
@@ -287,7 +306,6 @@ export default function Monitor() {
           </div>
         )}
 
-        {/* Workflow Runs */}
         {activeTab === 'runs' && (
           <div className="space-y-2">
             {runs.map(run => (
@@ -333,7 +351,6 @@ export default function Monitor() {
           </div>
         )}
 
-        {/* Agent Logs */}
         {activeTab === 'logs' && (
           <div className="space-y-2">
             {logs.map(log => (

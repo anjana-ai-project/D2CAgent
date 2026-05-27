@@ -95,6 +95,7 @@ Rules:
 - Keep under 200 words
 - End with: Is there anything else I can help you with?
 - CRITICAL: If a coupon code is provided in context use ONLY that exact code. Never invent coupon codes.
+- CRITICAL: If no Coupon Code appears in the context above do NOT mention any discount or coupon. Never invent compensation.
 Respond with ONLY valid JSON no markdown:
 {
   "response": "the full customer message here",
@@ -135,16 +136,24 @@ Respond with ONLY valid JSON no markdown:
                 "summary": "System error — manual follow up needed"
             }
 
-        # Step 4 — Set state
+         # Step 4 — Set state
         state["final_response"] = parsed["response"]
-        if state["loop_count"] >= state["max_loop_iterations"]:
+        
+        # Never loop for these intents
+        no_loop_intents = [
+            "order_status", "order_modification",
+            "simple_faq", "product_query",
+            "positive_feedback", "safety_alert"
+        ]
+        
+        if state.get("intent") in no_loop_intents:
+            state["response_sufficient"] = True
+        elif state["loop_count"] >= state["max_loop_iterations"]:
             state["response_sufficient"] = True
         else:
             state["response_sufficient"] = parsed.get(
                 "is_sufficient", True)
-        # Safety alerts should never loop
-        if state["is_safety_alert"]:
-            state["response_sufficient"] = True
+                
         # Step 5 — Send via Telegram
         await self.execute_tool(
             "send_telegram_message", state,

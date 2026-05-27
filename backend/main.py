@@ -202,16 +202,22 @@ async def run_workflow_and_broadcast(
 
 @app.websocket("/ws/monitor")
 async def websocket_monitor(websocket: WebSocket):
-    """WebSocket endpoint for live monitoring dashboard.
-    
-    Frontend connects here to receive real-time agent logs.
-    """
+    """WebSocket endpoint for live monitoring dashboard."""
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive
-            await websocket.receive_text()
+            try:
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                # Send ping to keep connection alive
+                await websocket.send_json({"type": "ping"})
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 

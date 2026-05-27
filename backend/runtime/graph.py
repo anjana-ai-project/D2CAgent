@@ -166,14 +166,27 @@ def route_from_response(state: AgentState) -> str:
     Implements feedback loop — routes back to compensation
     if response insufficient and loop limit not reached.
     Forces END after max_loop_iterations.
+    Only loops for complaint and return_request intents.
     """
     sufficient = state.get("response_sufficient", True)
     loop_count = state.get("loop_count", 0)
     max_loops = state.get("max_loop_iterations", 2)
+    is_safety = state.get("is_safety_alert", False)
+    intent = state.get("intent", "")
+
+    # Only these intents should ever loop
+    loop_eligible_intents = ["complaint", "return_request"]
+
+    if is_safety:
+        logger.info("Safety alert — no loop")
+        return END
+
+    if intent not in loop_eligible_intents:
+        logger.info(f"Intent {intent} — no loop needed")
+        return END
 
     if not sufficient and loop_count < max_loops:
-        logger.info(
-            f"Feedback loop triggered: attempt {loop_count}")
+        logger.info(f"Feedback loop triggered: attempt {loop_count}")
         return "compensation"
 
     logger.info("Response sufficient — ending workflow")
