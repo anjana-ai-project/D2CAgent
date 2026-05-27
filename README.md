@@ -348,6 +348,24 @@ n8n and Langflow are full platforms — embedding them would make LangGraph redu
 ### Agent Communication — Async via Shared State
 Agents communicate through LangGraph's shared state object running on FastAPI's asyncio event loop. Each agent is an async coroutine — no blocking, no queue needed for this scale.
 
+### Schedules — Implementation Approach
+The schedule field is persisted per agent as a cron expression in SQLite. 
+The execution engine would use APScheduler:
+
+```python
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+scheduler = AsyncIOScheduler()
+scheduler.add_job(
+    run_workflow,
+    CronTrigger.from_crontab(agent.schedule),
+    args=[brand_id, workflow_id]
+)
+scheduler.start()
+```
+
+Deprioritised for the 2-day MVP scope. Data model and UI configuration are ready.
 ---
 
 ## Tradeoffs

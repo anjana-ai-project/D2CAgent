@@ -92,19 +92,24 @@ class SupportAgent(BaseAgent):
         # Step 3 — Build classification prompt
         system_prompt = self.build_system_prompt(state)
         classification_instructions = """
-  Classify the customer message into exactly one intent.
-  Valid intents: order_status, order_modification, complaint,
-  return_request, cancellation, simple_faq, product_query,
-  safety_alert, positive_feedback
+        Classify the customer message into exactly one intent.
+        Valid intents: order_status, order_modification, complaint,
+        return_request, cancellation, simple_faq, product_query,
+        safety_alert, positive_feedback
 
-  Respond with ONLY a valid JSON object, no markdown:
-  {
-    "intent": "one_of_the_valid_intents",
-    "confidence": 0.95,
-    "reasoning": "brief explanation",
-    "customer_name_mentioned": null
-  }
-  """
+        Also extract the order ID if mentioned.
+        Order IDs follow the pattern: ORD followed by numbers.
+        Examples: ORD001, ORD016, ORD1234
+
+        Respond with ONLY a valid JSON object, no markdown:
+        {
+            "intent": "one_of_the_valid_intents",
+            "confidence": 0.95,
+            "reasoning": "brief explanation",
+            "customer_name_mentioned": null,
+            "order_id_mentioned": null
+        }
+        """
         full_prompt = system_prompt + classification_instructions
 
         # Step 4 — Call LLM
@@ -123,6 +128,10 @@ class SupportAgent(BaseAgent):
             customer_name = parsed.get("customer_name_mentioned")
             if customer_name and customer_name != "null":
                 state["customer_name"] = customer_name
+            order_id = parsed.get("order_id_mentioned")
+            if order_id and order_id != "null" and order_id is not None:
+                state["mentioned_order_id"] = str(order_id).upper()
+                self.logger.info(f"Order ID extracted: {state['mentioned_order_id']}")
             if (
                 hasattr(response, "usage_metadata")
                 and response.usage_metadata

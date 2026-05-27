@@ -24,6 +24,7 @@ class AgentState(TypedDict):
     workflow_id: str
     current_agent: str
     intent: Optional[str]
+    mentioned_order_id: Optional[str]
     # Intent values: order_status, order_modification, complaint,
     # return_request, cancellation, simple_faq, product_query,
     # safety_alert, positive_feedback
@@ -128,6 +129,7 @@ def create_initial_state(
         workflow_id=workflow_id,
         current_agent="support",
         intent=None,
+        mentioned_order_id=None,
         conversation_history=[],
         order_data=None,
         shipping_decision=None,

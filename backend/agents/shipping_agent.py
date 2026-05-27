@@ -2,7 +2,7 @@
 from typing import Any, Dict
 
 from backend.agents.base_agent import BaseAgent
-from backend.config import settings  # noqa: F401  (kept for downstream access)
+from backend.config import settings  # noqa: F401
 from backend.logger import setup_logger
 from backend.runtime.state import AgentState
 
@@ -10,36 +10,66 @@ from backend.runtime.state import AgentState
 class ShippingAgent(BaseAgent):
     """Shipping Agent — handles all order and inventory queries.
 
-    Queries SQLite for real order data using customer telegram_id.
+    Queries SQLite for real order data.
+    Uses mentioned order ID if customer specified one.
+    Falls back to telegram_id lookup otherwise.
     Determines shipping_decision: resolved or issue_found.
     Sets order_data in state for downstream agents.
     """
 
     def __init__(self, agent_config: Dict[str, Any]) -> None:
-        """Initialize the Shipping Agent.
-
-        Args:
-            agent_config: The agent configuration dict loaded from SQLite.
-        """
+        """Initialize the Shipping Agent."""
         super().__init__("agent_shipping", agent_config)
         self.logger = setup_logger(__name__)
 
     async def run(self, state: AgentState) -> AgentState:
-        """Look up the customer's orders and decide if escalation is needed.
-
-        Args:
-            state: The shared AgentState dict for the current run.
-
-        Returns:
-            The updated AgentState dict with order_data and
-            shipping_decision populated.
-        """
+        """Look up customer orders and decide if escalation is needed."""
         state["current_agent"] = "shipping"
         self.logger.info(
             "Shipping Agent: %s", state["telegram_chat_id"]
         )
 
         # Step 1 — Get customer orders
+        # Use mentioned order ID if customer specified one
+        mentioned_order_id = state.get("mentioned_order_id")
+
+        if mentioned_order_id:
+            self.logger.info(
+                f"Using mentioned order ID: {mentioned_order_id}")
+            result = await self.execute_tool(
+                "get_order_status", state,
+                order_id=mentioned_order_id
+            )
+            if result.get("success") and result.get("found"):
+                state["order_data"] = result
+                estimate = await self.execute_tool(
+                    "get_delivery_estimate", state,
+                    order_id=mentioned_order_id
+                )
+                if estimate.get("success"):
+                    state["order_data"]["delivery_message"] = \
+                        estimate.get("message", "")
+                if state["order_data"].get("is_delayed") or \
+                        state["order_data"].get("status") == "cancelled":
+                    state["shipping_decision"] = "issue_found"
+                else:
+                    state["shipping_decision"] = "resolved"
+                state = await self.log_action(
+                    state,
+                    f"shipping_decision_{state['shipping_decision']}",
+                    tool_called="get_order_status",
+                    tool_output={
+                        "decision": state["shipping_decision"],
+                        "order_id": mentioned_order_id
+                    }
+                )
+                return state
+            else:
+                self.logger.warning(
+                    f"Order {mentioned_order_id} not found "
+                    "— falling back to telegram_id lookup")
+
+        # Fall back to telegram ID lookup
         result = await self.execute_tool(
             "get_order_by_customer",
             state,
