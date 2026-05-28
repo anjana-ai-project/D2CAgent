@@ -86,23 +86,25 @@ class ResponseAgent(BaseAgent):
         # Step 2 — Build prompt
         system_prompt = self.build_system_prompt(state)
         response_instructions = """
-Craft a warm professional response based on context.
-Rules:
-- Address customer by name
-- Be empathetic and solution-focused
-- If coupon provided include code clearly
-- If escalated say owner follows up within 24 hours
-- Keep under 200 words
-- End with: Is there anything else I can help you with?
-- CRITICAL: If a coupon code is provided in context use ONLY that exact code. Never invent coupon codes.
-- CRITICAL: If no Coupon Code appears in the context above do NOT mention any discount or coupon. Never invent compensation.
-Respond with ONLY valid JSON no markdown:
-{
-  "response": "the full customer message here",
-  "is_sufficient": true,
-  "summary": "one sentence summary of this interaction"
-}
-"""
+  Craft a warm professional response based on context.
+  Rules:
+  - Address customer by name
+  - Be empathetic and solution-focused
+  - If coupon provided include code clearly
+  - If escalated say owner follows up within 24 hours
+  - Keep under 200 words
+  - End with: Is there anything else I can help you with?
+  - CRITICAL: If no Coupon Code appears in the context above do NOT mention any discount or coupon. Never invent coupon codes. Never invent discount percentages.
+  - CRITICAL: If customer asks to place an order say exactly: To place a new order please visit our website or contact us directly. Do not pretend to process orders.
+  - CRITICAL: Use ONLY the exact Coupon Code shown in context. Never create your own codes like ACTCUBE10 or CREDIT10 or similar.
+
+  Respond with ONLY valid JSON no markdown:
+  {
+    "response": "the full customer message here",
+    "is_sufficient": true,
+    "summary": "one sentence summary of this interaction"
+  }
+  """
         full_prompt = system_prompt + response_instructions
 
         # Step 3 — Call LLM
