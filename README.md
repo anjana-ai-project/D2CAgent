@@ -9,9 +9,7 @@ A multi-agent AI platform that enables D2C brands to deploy intelligent customer
 ---
 
 ## Demo Video
-
-[Insert demo video/gif link here]
-
+https://www.loom.com/share/0114bdc4ee3a4c60896a178645ed2f21
 ---
 
 ## Architecture
